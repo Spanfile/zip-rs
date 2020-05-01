@@ -153,7 +153,7 @@ impl<R: Read + io::Seek> ZipArchive<R> {
 
                 let directory_start = footer.central_directory_offset as u64 + archive_offset;
                 let number_of_files = footer.number_of_files_on_this_disk as usize;
-                return Ok((archive_offset, directory_start, number_of_files));
+                Ok((archive_offset, directory_start, number_of_files))
             }
             Some(locator64) => {
                 // If we got here, this is indeed a ZIP64 file.
@@ -213,7 +213,7 @@ impl<R: Read + io::Seek> ZipArchive<R> {
         let mut files = Vec::new();
         let mut names_map = HashMap::new();
 
-        if let Err(_) = reader.seek(io::SeekFrom::Start(directory_start)) {
+        if reader.seek(io::SeekFrom::Start(directory_start)).is_err() {
             return Err(ZipError::InvalidArchive(
                 "Could not seek to start of central directory",
             ));
@@ -226,9 +226,9 @@ impl<R: Read + io::Seek> ZipArchive<R> {
         }
 
         Ok(ZipArchive {
-            reader: reader,
-            files: files,
-            names_map: names_map,
+            reader,
+            files,
+            names_map,
             offset: archive_offset,
             comment: footer.zip_file_comment,
         })
@@ -248,6 +248,11 @@ impl<R: Read + io::Seek> ZipArchive<R> {
     /// ```
     pub fn len(&self) -> usize {
         self.files.len()
+    }
+
+    /// Returns `true` if the archive contains no files
+    pub fn is_empty(&self) -> bool {
+        self.files.is_empty()
     }
 
     /// Get the offset from the beginning of the underlying reader that this zip
@@ -286,7 +291,7 @@ impl<R: Read + io::Seek> ZipArchive<R> {
         if file_number >= self.files.len() {
             return Err(ZipError::FileNotFound);
         }
-        let ref mut data = self.files[file_number];
+        let data = &mut self.files[file_number];
 
         if data.encrypted {
             return unsupported_zip_error("Encrypted files are not supported");
@@ -368,15 +373,15 @@ fn central_header_to_zip_file<R: Read + io::Seek>(
     let mut result = ZipFileData {
         system: System::from_u8((version_made_by >> 8) as u8),
         version_made_by: version_made_by as u8,
-        encrypted: encrypted,
+        encrypted,
         compression_method: CompressionMethod::from_u16(compression_method),
         last_modified_time: DateTime::from_msdos(last_mod_date, last_mod_time),
-        crc32: crc32,
+        crc32,
         compressed_size: compressed_size as u64,
         uncompressed_size: uncompressed_size as u64,
-        file_name: file_name,
-        file_name_raw: file_name_raw,
-        file_comment: file_comment,
+        file_name,
+        file_name_raw,
+        file_comment,
         header_start: offset,
         data_start: 0,
         external_attributes: external_file_attributes,
@@ -384,7 +389,7 @@ fn central_header_to_zip_file<R: Read + io::Seek>(
 
     match parse_extra_field(&mut result, &*extra_field) {
         Ok(..) | Err(ZipError::Io(..)) => {}
-        Err(e) => Err(e)?,
+        Err(e) => return Err(e),
     }
 
     // Account for shifted zip offsets.
@@ -400,25 +405,23 @@ fn parse_extra_field(file: &mut ZipFileData, data: &[u8]) -> ZipResult<()> {
         let kind = reader.read_u16::<LittleEndian>()?;
         let len = reader.read_u16::<LittleEndian>()?;
         let mut len_left = len as i64;
-        match kind {
-            // Zip64 extended information extra field
-            0x0001 => {
-                if file.uncompressed_size == 0xFFFFFFFF {
-                    file.uncompressed_size = reader.read_u64::<LittleEndian>()?;
-                    len_left -= 8;
-                }
-                if file.compressed_size == 0xFFFFFFFF {
-                    file.compressed_size = reader.read_u64::<LittleEndian>()?;
-                    len_left -= 8;
-                }
-                if file.header_start == 0xFFFFFFFF {
-                    file.header_start = reader.read_u64::<LittleEndian>()?;
-                    len_left -= 8;
-                }
-                // Unparsed fields:
-                // u32: disk start number
+
+        // Zip64 extended information extra field
+        if kind == 0x0001 {
+            if file.uncompressed_size == 0xFFFFFFFF {
+                file.uncompressed_size = reader.read_u64::<LittleEndian>()?;
+                len_left -= 8;
             }
-            _ => {}
+            if file.compressed_size == 0xFFFFFFFF {
+                file.compressed_size = reader.read_u64::<LittleEndian>()?;
+                len_left -= 8;
+            }
+            if file.header_start == 0xFFFFFFFF {
+                file.header_start = reader.read_u64::<LittleEndian>()?;
+                len_left -= 8;
+            }
+            // Unparsed fields:
+            // u32: disk start number
         }
 
         // We could also check for < 0 to check for errors
@@ -626,14 +629,14 @@ pub fn read_zipfile_from_stream<'a, R: io::Read>(
     let mut result = ZipFileData {
         system: System::from_u8((version_made_by >> 8) as u8),
         version_made_by: version_made_by as u8,
-        encrypted: encrypted,
-        compression_method: compression_method,
+        encrypted,
+        compression_method,
         last_modified_time: DateTime::from_msdos(last_mod_date, last_mod_time),
-        crc32: crc32,
+        crc32,
         compressed_size: compressed_size as u64,
         uncompressed_size: uncompressed_size as u64,
-        file_name: file_name,
-        file_name_raw: file_name_raw,
+        file_name,
+        file_name_raw,
         file_comment: String::new(), // file comment is only available in the central directory
         // header_start and data start are not available, but also don't matter, since seeking is
         // not available.
@@ -647,7 +650,7 @@ pub fn read_zipfile_from_stream<'a, R: io::Read>(
 
     match parse_extra_field(&mut result, &extra_field) {
         Ok(..) | Err(ZipError::Io(..)) => {}
-        Err(e) => Err(e)?,
+        Err(e) => return Err(e),
     }
 
     if encrypted {
@@ -711,9 +714,8 @@ mod test {
         v.extend_from_slice(include_bytes!("../tests/data/mimetype.zip"));
         let mut reader = io::Cursor::new(v);
         loop {
-            match read_zipfile_from_stream(&mut reader).unwrap() {
-                None => break,
-                _ => (),
+            if read_zipfile_from_stream(&mut reader).unwrap().is_none() {
+                break;
             }
         }
     }
@@ -749,10 +751,10 @@ mod test {
         let mut buf3 = [0; 5];
         let mut buf4 = [0; 5];
 
-        file1.read(&mut buf1).unwrap();
-        file2.read(&mut buf2).unwrap();
-        file1.read(&mut buf3).unwrap();
-        file2.read(&mut buf4).unwrap();
+        file1.read_exact(&mut buf1).unwrap();
+        file2.read_exact(&mut buf2).unwrap();
+        file1.read_exact(&mut buf3).unwrap();
+        file2.read_exact(&mut buf4).unwrap();
 
         assert_eq!(buf1, buf2);
         assert_eq!(buf3, buf4);

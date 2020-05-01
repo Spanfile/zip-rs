@@ -45,7 +45,7 @@ fn real_main() -> i32 {
         }
     }
 
-    return 0;
+    0
 }
 
 fn zip_dir<T>(
@@ -77,7 +77,7 @@ where
             f.read_to_end(&mut buffer)?;
             zip.write_all(&*buffer)?;
             buffer.clear();
-        } else if name.as_os_str().len() != 0 {
+        } else if !name.as_os_str().is_empty() {
             // Only if not root! Avoids path spec / warning
             // and mapname conversion failed error on unzip
             println!("adding dir {:?} as {:?} ...", path, name);

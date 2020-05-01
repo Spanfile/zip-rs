@@ -59,7 +59,7 @@ impl DateTime {
         let seconds = (timepart & 0b0000000000011111) << 1;
         let minutes = (timepart & 0b0000011111100000) >> 5;
         let hours = (timepart & 0b1111100000000000) >> 11;
-        let days = (datepart & 0b0000000000011111) >> 0;
+        let days = datepart & 0b0000000000011111;
         let months = (datepart & 0b0000000111100000) >> 5;
         let years = (datepart & 0b1111111000000000) >> 9;
 
@@ -101,12 +101,12 @@ impl DateTime {
             && second <= 60
         {
             Ok(DateTime {
-                year: year,
-                month: month,
-                day: day,
-                hour: hour,
-                minute: minute,
-                second: second,
+                year,
+                month,
+                day,
+                hour,
+                minute,
+                second,
             })
         } else {
             Err(())
@@ -252,7 +252,7 @@ impl ZipFileData {
         let separator = ::std::path::MAIN_SEPARATOR;
         let opposite_separator = match separator {
             '/' => '\\',
-            '\\' | _ => '/',
+            _ => '/',
         };
         let filename =
             no_null_filename.replace(&opposite_separator.to_string(), &separator.to_string());
@@ -320,15 +320,15 @@ mod test {
         use super::DateTime;
         let dt = DateTime::default();
         assert_eq!(dt.timepart(), 0);
-        assert_eq!(dt.datepart(), 0b0000000_0001_00001);
+        assert_eq!(dt.datepart(), 0b0000_0000_0010_0001);
     }
 
     #[test]
     fn datetime_max() {
         use super::DateTime;
         let dt = DateTime::from_date_and_time(2107, 12, 31, 23, 59, 60).unwrap();
-        assert_eq!(dt.timepart(), 0b10111_111011_11110);
-        assert_eq!(dt.datepart(), 0b1111111_1100_11111);
+        assert_eq!(dt.timepart(), 0b1011_1111_0111_1110);
+        assert_eq!(dt.datepart(), 0b1111_1111_1001_1111);
     }
 
     #[test]
