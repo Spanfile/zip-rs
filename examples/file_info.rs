@@ -1,5 +1,4 @@
-use std::fs;
-use std::io::BufReader;
+use std::{fs, io::BufReader};
 
 fn main() {
     std::process::exit(real_main());
@@ -29,9 +28,18 @@ fn real_main() -> i32 {
         }
 
         if (&*file.name()).ends_with('/') {
-            println!("Entry {} is a directory with name \"{}\"", i, outpath.as_path().display());
+            println!(
+                "Entry {} is a directory with name \"{}\"",
+                i,
+                outpath.as_path().display()
+            );
         } else {
-            println!("Entry {} is a file with name \"{}\" ({} bytes)", i, outpath.as_path().display(), file.size());
+            println!(
+                "Entry {} is a file with name \"{}\" ({} bytes)",
+                i,
+                outpath.as_path().display(),
+                file.size()
+            );
         }
     }
     return 0;

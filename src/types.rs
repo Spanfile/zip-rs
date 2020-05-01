@@ -1,8 +1,7 @@
 //! Types that specify what is contained in a ZIP.
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum System
-{
+pub enum System {
     Dos = 0,
     Unix = 3,
     Unknown,
@@ -11,8 +10,7 @@ pub enum System
 }
 
 impl System {
-    pub fn from_u8(system: u8) -> System
-    {
+    pub fn from_u8(system: u8) -> System {
         use self::System::*;
 
         match system {
@@ -25,11 +23,12 @@ impl System {
 
 /// A DateTime field to be used for storing timestamps in a zip file
 ///
-/// This structure does bounds checking to ensure the date is able to be stored in a zip file.
+/// This structure does bounds checking to ensure the date is able to be stored
+/// in a zip file.
 ///
-/// When constructed manually from a date and time, it will also check if the input is sensible
-/// (e.g. months are from [1, 12]), but when read from a zip some parts may be out of their normal
-/// bounds (e.g. month 0, or hour 31).
+/// When constructed manually from a date and time, it will also check if the
+/// input is sensible (e.g. months are from [1, 12]), but when read from a zip
+/// some parts may be out of their normal bounds (e.g. month 0, or hour 31).
 #[derive(Debug, Clone, Copy)]
 pub struct DateTime {
     year: u16,
@@ -59,10 +58,10 @@ impl DateTime {
     pub fn from_msdos(datepart: u16, timepart: u16) -> DateTime {
         let seconds = (timepart & 0b0000000000011111) << 1;
         let minutes = (timepart & 0b0000011111100000) >> 5;
-        let hours =   (timepart & 0b1111100000000000) >> 11;
-        let days =    (datepart & 0b0000000000011111) >> 0;
-        let months =  (datepart & 0b0000000111100000) >> 5;
-        let years =   (datepart & 0b1111111000000000) >> 9;
+        let hours = (timepart & 0b1111100000000000) >> 11;
+        let days = (datepart & 0b0000000000011111) >> 0;
+        let months = (datepart & 0b0000000111100000) >> 5;
+        let years = (datepart & 0b1111111000000000) >> 9;
 
         DateTime {
             year: (years + 1980) as u16,
@@ -83,10 +82,20 @@ impl DateTime {
     /// * hour: [0, 23]
     /// * minute: [0, 59]
     /// * second: [0, 60]
-    pub fn from_date_and_time(year: u16, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> Result<DateTime, ()> {
-        if year >= 1980 && year <= 2107
-            && month >= 1 && month <= 12
-            && day >= 1 && day <= 31
+    pub fn from_date_and_time(
+        year: u16,
+        month: u8,
+        day: u8,
+        hour: u8,
+        minute: u8,
+        second: u8,
+    ) -> Result<DateTime, ()> {
+        if year >= 1980
+            && year <= 2107
+            && month >= 1
+            && month <= 12
+            && day >= 1
+            && day <= 31
             && hour <= 23
             && minute <= 59
             && second <= 60
@@ -99,8 +108,7 @@ impl DateTime {
                 minute: minute,
                 second: second,
             })
-        }
-        else {
+        } else {
             Err(())
         }
     }
@@ -110,12 +118,18 @@ impl DateTime {
     ///
     /// Returns `Err` when this object is out of bounds
     pub fn from_time(tm: ::time::Tm) -> Result<DateTime, ()> {
-        if tm.tm_year >= 80 && tm.tm_year <= 207
-            && tm.tm_mon >= 0 && tm.tm_mon <= 11
-            && tm.tm_mday >= 1 && tm.tm_mday <= 31
-            && tm.tm_hour >= 0 && tm.tm_hour <= 23
-            && tm.tm_min >= 0 && tm.tm_min <= 59
-            && tm.tm_sec >= 0 && tm.tm_sec <= 60
+        if tm.tm_year >= 80
+            && tm.tm_year <= 207
+            && tm.tm_mon >= 0
+            && tm.tm_mon <= 11
+            && tm.tm_mday >= 1
+            && tm.tm_mday <= 31
+            && tm.tm_hour >= 0
+            && tm.tm_hour <= 23
+            && tm.tm_min >= 0
+            && tm.tm_min <= 59
+            && tm.tm_sec >= 0
+            && tm.tm_sec <= 60
         {
             Ok(DateTime {
                 year: (tm.tm_year + 1900) as u16,
@@ -125,8 +139,7 @@ impl DateTime {
                 minute: tm.tm_min as u8,
                 second: tm.tm_sec as u8,
             })
-        }
-        else {
+        } else {
             Err(())
         }
     }
@@ -144,7 +157,8 @@ impl DateTime {
     #[cfg(feature = "time")]
     /// Converts the datetime to a Tm structure
     ///
-    /// The fields `tm_wday`, `tm_yday`, `tm_utcoff` and `tm_nsec` are set to their defaults.
+    /// The fields `tm_wday`, `tm_yday`, `tm_utcoff` and `tm_nsec` are set to
+    /// their defaults.
     pub fn to_time(&self) -> ::time::Tm {
         ::time::Tm {
             tm_sec: self.second as i32,
@@ -154,7 +168,7 @@ impl DateTime {
             tm_mon: self.month as i32 - 1,
             tm_year: self.year as i32 - 1900,
             tm_isdst: -1,
-            .. ::time::empty_tm()
+            ..::time::empty_tm()
         }
     }
 
@@ -193,8 +207,7 @@ pub const DEFAULT_VERSION: u8 = 46;
 
 /// Structure representing a ZIP file.
 #[derive(Debug, Clone)]
-pub struct ZipFileData
-{
+pub struct ZipFileData {
     /// Compatibility of the file attribute information
     pub system: System,
     /// Specification version
@@ -230,7 +243,8 @@ impl ZipFileData {
         let no_null_filename = match self.file_name.find('\0') {
             Some(index) => &self.file_name[0..index],
             None => &self.file_name,
-        }.to_string();
+        }
+        .to_string();
 
         // zip files can contain both / and \ as separators regardless of the OS
         // and as we want to return a sanitized PathBuf that only supports the
@@ -295,7 +309,10 @@ mod test {
             data_start: 0,
             external_attributes: 0,
         };
-        assert_eq!(data.file_name_sanitized(), ::std::path::PathBuf::from("path/etc/passwd"));
+        assert_eq!(
+            data.file_name_sanitized(),
+            ::std::path::PathBuf::from("path/etc/passwd")
+        );
     }
 
     #[test]
@@ -399,7 +416,10 @@ mod test {
         assert_eq!(dt.second(), 30);
 
         #[cfg(feature = "time")]
-        assert_eq!(format!("{}", dt.to_time().rfc3339()), "2018-11-17T10:38:30Z");
+        assert_eq!(
+            format!("{}", dt.to_time().rfc3339()),
+            "2018-11-17T10:38:30Z"
+        );
     }
 
     #[test]
@@ -414,7 +434,10 @@ mod test {
         assert_eq!(dt.second(), 62);
 
         #[cfg(feature = "time")]
-        assert_eq!(format!("{}", dt.to_time().rfc3339()), "2107-15-31T31:63:62Z");
+        assert_eq!(
+            format!("{}", dt.to_time().rfc3339()),
+            "2107-15-31T31:63:62Z"
+        );
 
         let dt = DateTime::from_msdos(0x0000, 0x0000);
         assert_eq!(dt.year(), 1980);
@@ -425,7 +448,10 @@ mod test {
         assert_eq!(dt.second(), 0);
 
         #[cfg(feature = "time")]
-        assert_eq!(format!("{}", dt.to_time().rfc3339()), "1980-00-00T00:00:00Z");
+        assert_eq!(
+            format!("{}", dt.to_time().rfc3339()),
+            "1980-00-00T00:00:00Z"
+        );
     }
 
     #[cfg(feature = "time")]
