@@ -25,10 +25,10 @@ impl ZipError {
     fn detail(&self) -> ::std::borrow::Cow<'_, str> {
         match *self {
             ZipError::Io(ref io_err) => {
-                ("Io Error: ".to_string() + &(io_err as &dyn error::Error).to_string()).into()
+                (String::from("Io Error: ") + &(io_err as &dyn error::Error).to_string()).into()
             }
             ZipError::InvalidArchive(msg) | ZipError::UnsupportedArchive(msg) => {
-                (self.to_string() + ": " + msg).into()
+                (String::from("Invalid/unsupported archive: ") + msg).into()
             }
             ZipError::FileNotFound => self.to_string().into(),
         }
